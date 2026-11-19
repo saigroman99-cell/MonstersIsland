@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Остров Трёх Монстров</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Courier New', monospace; color: #c00; touch-action: none; }
+  #game { position: fixed; inset: 0; }
+  
+  #hud { position: fixed; top: 10px; left: 10px; padding: 10px 15px; background: rgba(0,0,0,0.6); border: 1px solid #600; border-radius: 5px; font-size: 16px; z-index: 10; text-shadow: 0 0 5px #f00; pointer-events: none; }
+  #hud div { margin: 3px 0; }
+  
+  #message { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; background: rgba(0,0,0,0.85); border: 2px solid #900; border-radius: 10px; font-size: 22px; text-align: center; z-index: 20; display: none; text-shadow: 0 0 10px #f00; max-width: 80%; }
+  
+  #startScreen, #endScreen { position: fixed; inset: 0; background: radial-gradient(circle, #200, #000); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; padding: 20px; overflow-y: auto; }
+  #startScreen h1, #endScreen h1 { font-size: clamp(24px, 5vw, 48px); color: #b00; text-shadow: 0 0 20px #f00, 0 0 40px #600; margin-bottom: 15px; letter-spacing: 3px; }
+  #startScreen p, #endScreen p { font-size: clamp(13px, 2.3vw, 16px); color: #aaa; max-width: 700px; margin: 8px 0; line-height: 1.5; }
+  
+  .btn { margin-top: 20px; padding: 14px 36px; font-size: 18px; background: #400; color: #fff; border: 2px solid #a00; border-radius: 8px; cursor: pointer; font-family: inherit; letter-spacing: 2px; transition: all 0.3s; }
+  .btn:hover, .btn:active { background: #700; box-shadow: 0 0 20px #f00; }
+  
+  .settings { margin-top: 15px; padding: 15px 20px; background: rgba(0,0,0,0.5); border: 1px solid #600; border-radius: 8px; max-width: 500px; width: 90%; }
+  .settings h3 { color: #f66; font-size: 16px; margin-bottom: 10px; letter-spacing: 2px; }
+  .qualityButtons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+  .qbtn { flex: 1; min-width: 90px; padding: 10px 8px; font-size: 13px; background: #200; color: #aaa; border: 1px solid #600; border-radius: 5px; cursor: pointer; font-family: inherit; letter-spacing: 1px; transition: all 0.2s; }
+  .qbtn:hover { background: #400; color: #fff; }
+  .qbtn.active { background: #700; color: #fff; border-color: #f66; box-shadow: 0 0 10px #f00; }
+  .qualityDesc { color: #888; font-size: 12px; margin-top: 10px; min-height: 32px; line-height: 1.4; }
+  .autoDetect { color: #6a6; font-size: 11px; margin-top: 5px; font-style: italic; }
+  
+  #controls { position: fixed; bottom: 0; left: 0; right: 0; height: 100%; pointer-events: none; z-index: 15; }
+  
+  #joystickL { position: absolute; bottom: 30px; left: 30px; width: 130px; height: 130px; background: rgba(255,255,255,0.08); border: 2px solid rgba(100,200,255,0.3); border-radius: 50%; pointer-events: auto; display: none; }
+  #stickL { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 55px; height: 55px; background: rgba(100,200,255,0.4); border: 2px solid #4af; border-radius: 50%; }
+  
+  #joystickR { position: absolute; top: 0; right: 0; width: 50%; height: 100%; background: transparent; border: none; pointer-events: auto; display: none; }
+  #stickR { position: absolute; width: 55px; height: 55px; background: rgba(255,100,100,0.3); border: 2px solid rgba(255,100,100,0.5); border-radius: 50%; pointer-events: none; display: none; }
+  
+  #actionBtn { position: absolute; bottom: 190px; right: 40px; width: 75px; height: 75px; background: rgba(180,0,0,0.5); border: 2px solid #a00; border-radius: 50%; color: #fff; font-size: 13px; font-weight: bold; pointer-events: auto; display: none; cursor: pointer; }
+  
+  .joyLabel { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.4); font-size: 11px; letter-spacing: 1px; pointer-events: none; }
+  #crosshair { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4px; height: 4px; background: #f66; border-radius: 50%; z-index: 5; box-shadow: 0 0 6px #f00; pointer-events: none; }
+  #hint { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 8px 20px; background: rgba(0,0,0,0.7); border: 1px solid #600; border-radius: 5px; font-size: 14px; z-index: 10; display: none; pointer-events: none; }
+  .touch #joystickL, .touch #joystickR, .touch #actionBtn { display: block; }
+  #damageFlash { position: fixed; inset: 0; background: radial-gradient(circle, transparent 40%, rgba(180,0,0,0.6)); opacity: 0; pointer-events: none; z-index: 8; transition: opacity 0.3s; }
+  #safeIndicator { position: fixed; top: 10px; right: 10px; padding: 8px 15px; background: rgba(0,80,0,0.7); border: 1px solid #0f0; border-radius: 5px; font-size: 14px; color: #0f0; z-index: 10; display: none; text-shadow: 0 0 5px #0f0; pointer-events: none; }
+  #fpsCounter { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); padding: 4px 10px; background: rgba(0,0,0,0.5); color: #0f0; font-size: 12px; border-radius: 3px; z-index: 10; display: none; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="crosshair"></div>
+<div id="damageFlash"></div>
+<div id="safeIndicator">🛡️ БЕЗОПАСНАЯ ЗОНА</div>
+<div id="fpsCounter">FPS: 60</div>
+
+<div id="hud">
+  <div>❤️ Здоровье: <span id="hp">100</span></div>
+  <div>🗿 Реликвии: <span id="relics">0</span> / 3</div>
+  <div id="status" style="color:#fa0;">Найди 3 реликвии в пещерах</div>
+</div>
+
+<div id="hint"></div>
+<div id="message"></div>
+
+<div id="startScreen">
+  <h1>ОСТРОВ ТРЁХ МОНСТРОВ</h1>
+  <p>Ты попал на проклятый остров, окружённый океаном. 🌫️ <b>Густой туман</b> ограничивает видимость до 30 метров.</p>
+  <p>🏠 На острове <b>4 укрытия</b> — внутри монстры не атакуют.</p>
+  <p>⚠️ <b>Олень</b> устаёт через 5 сек погони и убегает на 10 сек.</p>
+  
+  <div class="settings">
+    <h3>⚙️ НАСТРОЙКИ ГРАФИКИ</h3>
+    <div class="qualityButtons">
+      <button class="qbtn" data-q="low">🔻 НИЗКОЕ</button>
+      <button class="qbtn active" data-q="medium">⚡ СРЕДНЕЕ</button>
+      <button class="qbtn" data-q="high">✨ ВЫСОКОЕ</button>
+    </div>
+    <div class="qualityDesc" id="qualityDesc">Сбалансированное качество для большинства устройств</div>
+    <div class="autoDetect" id="autoDetect"></div>
+  </div>
+  
+  <p style="color:#666; font-size:12px; margin-top:12px;">ПК: WASD + Мышь + E (Shift — бег)<br>Мобильные: Левый стик + Правая половина экрана</p>
+  <button class="btn" id="startBtn">НАЧАТЬ ИГРУ</button>
+</div>
+
+<div id="endScreen" style="display:none;">
+  <h1 id="endTitle"></h1>
+  <p id="endText"></p>
+  <button class="btn" onclick="location.reload()">ИГРАТЬ СНОВА</button>
+</div>
+
+<div id="controls">
+  <div id="joystickL"><div id="stickL"></div><div class="joyLabel">ХОДЬБА</div></div>
+  <div id="joystickR"><div id="stickR"></div></div>
+  <button id="actionBtn">ДЕЙСТВИЕ</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+<script>
+// ============ НАСТРОЙКИ КАЧЕСТВА ============
+const QUALITY_PRESETS = {
+  low: {
+    name: 'Низкое',
+    desc: 'Минимум объектов, упрощённая геометрия. Для очень слабых устройств',
+    treeCount: 70,
+    rockCount: 12,
+    mushroomCount: 8,
+    oceanSegments: 8,        // Меньше сегментов — океан статичный
+    oceanMaterial: 'basic',
+    pixelRatio: 1,
+    shadows: false,
+    antialias: false,
+    cameraFar: 50,
+    treeSegments: 5,
+    geoDetail: 6,
+    dynamicLights: false,
+    torchFlicker: false,
+    maxPointLights: 4
+  },
+  medium: {
+    name: 'Среднее',
+    desc: 'Сбалансированное качество для большинства устройств',
+    treeCount: 140,
+    rockCount: 25,
+    mushroomCount: 18,
+    oceanSegments: 16,
+    oceanMaterial: 'standard',
+    pixelRatio: Math.min(window.devicePixelRatio, 1.5),
+    shadows: false,
+    antialias: false,
+    cameraFar: 50,
+    treeSegments: 6,
+    geoDetail: 8,
+    dynamicLights: true,
+    torchFlicker: true,
+    maxPointLights: 8
+  },
+  high: {
+    name: 'Высокое',
+    desc: 'Максимальное качество с тенями и детализацией',
+    treeCount: 240,
+    rockCount: 45,
+    mushroomCount: 32,
+    oceanSegments: 24,
+    oceanMaterial: 'standard',
+    pixelRatio: Math.min(window.devicePixelRatio, 2),
+    shadows: true,
+    antialias: true,
+    cameraFar: 50,
+    treeSegments: 7,
+    geoDetail: 10,
+    dynamicLights: true,
+    torchFlicker: true,
+    maxPointLights: 16
+  }
+};
+
+// ============ ПАРАМЕТРЫ ТУМАНА ============
+const FOG_COLOR = 0x1a1a20;
+const FOG_NEAR = 1;
+const FOG_FAR = 30;
+
+// Автодетект
+function detectRecommendedQuality() {
+  const cores = navigator.hardwareConcurrency || 2;
+  const memory = navigator.deviceMemory || 2;
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  
+  if (cores <= 2 || memory <= 2 || (isMobile && cores <= 4)) return 'low';
+  if (cores <= 4 || memory <= 4 || isMobile) return 'medium';
+  return 'high';
+}
+
+let currentQuality = detectRecommendedQuality();
+let Q = QUALITY_PRESETS[currentQuality];
+
+document.getElementById('autoDetect').textContent = `Рекомендуется: ${QUALITY_PRESETS[currentQuality].name.toUpperCase()}`;
+
+function updateQualityDesc() {
+  document.getElementById('qualityDesc').textContent = QUALITY_PRESETS[currentQuality].desc;
+  document.querySelectorAll('.qbtn').forEach(b => {
+    b.classList.toggle('active', b.dataset.q === currentQuality);
+  });
+}
+updateQualityDesc();
+
+document.querySelectorAll('.qbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentQuality = btn.dataset.q;
+    Q = QUALITY_PRESETS[currentQuality];
+    updateQualityDesc();
+  });
+});
+
+// ============ БАЗОВЫЕ НАСТРОЙКИ ============
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent) || 'ontouchstart' in window;
+if (IS_MOBILE) document.body.classList.add('touch');
+
+const WORLD_RADIUS = 200;
+const OCEAN_RADIUS = 400;
+const PLAYER_SPEED = 6.5;
+const PLAYER_RUN = 11.5;
+const LOOK_SENSITIVITY = 3.0;
+
+// ============ СЦЕНА ============
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(FOG_COLOR);
+scene.fog = new THREE.Fog(FOG_COLOR, FOG_NEAR, FOG_FAR);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, Q.cameraFar);
+camera.position.set(0, 1.7, 0);
+
+const renderer = new THREE.WebGLRenderer({ 
+  antialias: Q.antialias,
+  powerPreference: 'high-performance'
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Q.pixelRatio);
+renderer.shadowMap.enabled = Q.shadows;
+if (Q.shadows) renderer.shadowMap.type = THREE.BasicShadowMap;
+document.getElementById('game').appendChild(renderer.domElement);
+
+// ============ ОСВЕЩЕНИЕ ============
+const ambient = new THREE.AmbientLight(0x334455, 0.6);
+scene.add(ambient);
+
+const moonLight = new THREE.DirectionalLight(0x8899bb, 0.5);
+moonLight.position.set(100, 150, 50);
+scene.add(moonLight);
+
+const torch = new THREE.PointLight(0xffaa55, 1.4, 18, 2);
+torch.position.set(0, 1.5, 0);
+scene.add(torch);
+
+let pointLightCount = 1;
+function addPointLight(color, intensity, distance, position) {
+  if (pointLightCount >= Q.maxPointLights) return null;
+  const light = new THREE.PointLight(color, intensity, distance, 2);
+  if (position) light.position.copy(position);
+  scene.add(light);
+  pointLightCount++;
+  return light;
+}
+
+// ============ ЗЕМЛЯ ============
+const groundGeo = new THREE.CircleGeometry(WORLD_RADIUS, 64);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x2a3020, roughness: 1 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = Q.shadows;
+scene.add(ground);
+
+// Песчаный берег — ЧУТЬ ВЫШЕ ОКЕАНА, чтобы не было наложения
+const beachGeo = new THREE.RingGeometry(WORLD_RADIUS - 8, WORLD_RADIUS + 2, 64);
+const beachMat = new THREE.MeshStandardMaterial({ color: 0x6a5a3a, roughness: 1 });
+const beach = new THREE.Mesh(beachGeo, beachMat);
+beach.rotation.x = -Math.PI/2;
+beach.position.y = 0.02; // Чуть выше земли, чтобы был виден переход
+scene.add(beach);
+
+// ============ ОКЕАН (СТАТИЧНЫЙ, БЕЗ ВОЛН) ============
+// Океан опущен ниже уровня суши, чтобы волны не залезали на берег
+const oceanGeo = new THREE.PlaneGeometry(OCEAN_RADIUS * 2, OCEAN_RADIUS * 2, Q.oceanSegments, Q.oceanSegments);
+let oceanMat;
+if (Q.oceanMaterial === 'basic') {
+  oceanMat = new THREE.MeshBasicMaterial({ 
+    color: 0x0a3a5a, 
+    transparent: true,
+    opacity: 0.95
+  });
+} else {
+  oceanMat = new THREE.MeshStandardMaterial({ 
+    color: 0x0a2a4a, 
+    roughness: 0.3, 
+    metalness: 0.5,
+    transparent: true,
+    opacity: 0.92
+  });
+}
+const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+ocean.rotation.x = -Math.PI/2;
+ocean.position.y = -0.6; // ОПУЩЕН НИЖЕ — больше не залезает на сушу
+scene.add(ocean);
+
+// Глубокий океан
+const deepOceanGeo = new THREE.PlaneGeometry(OCEAN_RADIUS * 3, OCEAN_RADIUS * 3, 4, 4);
+const deepOceanMat = new THREE.MeshBasicMaterial({ color: 0x020810 });
+const deepOcean = new THREE.Mesh(deepOceanGeo, deepOceanMat);
+deepOcean.rotation.x = -Math.PI/2;
+deepOcean.position.y = -2;
+scene.add(deepOcean);
+
+// ============ ХОЛМ И ПОСТАМЕНТ ============
+const hillGeo = new THREE.ConeGeometry(9, 3.5, 16);
+const hillMat = new THREE.MeshStandardMaterial({ color: 0x3a3a30, roughness: 1 });
+const hill = new THREE.Mesh(hillGeo, hillMat);
+hill.position.y = 1.75;
+hill.castShadow = Q.shadows;
+hill.receiveShadow = Q.shadows;
+scene.add(hill);
+
+const baseGeo = new THREE.CylinderGeometry(2.5, 3, 0.8, 12);
+const baseMat = new THREE.MeshStandardMaterial({ color: 0x4a4a40, roughness: 0.9 });
+const base = new THREE.Mesh(baseGeo, baseMat);
+base.position.y = 3.9;
+base.castShadow = Q.shadows;
+scene.add(base);
+
+const pedestalGeo = new THREE.CylinderGeometry(1.2, 1.5, 1.5, 10);
+const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.4, metalness: 0.4 });
+const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+pedestal.position.y = 5.05;
+pedestal.castShadow = Q.shadows;
+scene.add(pedestal);
+
+const haloGeo = new THREE.RingGeometry(1.3, 2.0, 24);
+const haloMat = new THREE.MeshBasicMaterial({ color: 0xffaa00, transparent: true, opacity: 0.5, side: THREE.DoubleSide });
+const halo = new THREE.Mesh(haloGeo, haloMat);
+halo.rotation.x = -Math.PI/2;
+halo.position.y = 5.85;
+scene.add(halo);
+
+const pedestalLight = addPointLight(0xffaa00, 0.8, 10, new THREE.Vector3(0, 6, 0));
+
+// ============ КАМНИ ============
+const rockGeo = new THREE.DodecahedronGeometry(1, 0);
+const rockMat = new THREE.MeshStandardMaterial({ color: 0x4a4a45, roughness: 1, flatShading: true });
+const rocks = [];
+
+for (let i = 0; i < Q.rockCount; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 10 + Math.random() * (WORLD_RADIUS - 20);
+  const x = Math.cos(angle) * dist;
+  const z = Math.sin(angle) * dist;
+  
+  if (Math.sqrt(x*x + z*z) < 12) continue;
+  
+  const rock = new THREE.Mesh(rockGeo, rockMat);
+  const s = 0.3 + Math.random() * 0.9;
+  rock.scale.set(s * (0.8 + Math.random() * 0.5), s * 0.6, s * (0.8 + Math.random() * 0.5));
+  rock.position.set(x, s * 0.2, z);
+  rock.rotation.set(Math.random(), Math.random(), Math.random());
+  rock.castShadow = Q.shadows;
+  rock.receiveShadow = Q.shadows;
+  scene.add(rock);
+  rocks.push(rock);
+}
+
+// ============ СВЕТЯЩИЕСЯ ГРИБЫ ============
+const mushrooms = [];
+const mushroomCapGeo = new THREE.SphereGeometry(0.2, Q.geoDetail, Math.max(4, Q.geoDetail - 2), 0, Math.PI*2, 0, Math.PI/2);
+const mushroomStemGeo = new THREE.CylinderGeometry(0.05, 0.07, 0.25, Math.max(4, Q.geoDetail - 2));
+const mushroomColors = [0x00ffaa, 0x88ff00, 0x00aaff];
+
+for (let i = 0; i < Q.mushroomCount; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 15 + Math.random() * (WORLD_RADIUS - 30);
+  const x = Math.cos(angle) * dist;
+  const z = Math.sin(angle) * dist;
+  
+  if (Math.sqrt(x*x + z*z) < 12) continue;
+  
+  const color = mushroomColors[Math.floor(Math.random() * mushroomColors.length)];
+  const group = new THREE.Group();
+  
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0xccccaa, roughness: 1 });
+  const stem = new THREE.Mesh(mushroomStemGeo, stemMat);
+  stem.position.y = 0.125;
+  group.add(stem);
+  
+  const capMat = new THREE.MeshStandardMaterial({ 
+    color: color, emissive: color, emissiveIntensity: 0.9, roughness: 0.5
+  });
+  const cap = new THREE.Mesh(mushroomCapGeo, capMat);
+  cap.position.y = 0.25;
+  group.add(cap);
+  
+  let light = null;
+  if (Q.dynamicLights) {
+    light = addPointLight(color, 0.4, 4, new THREE.Vector3(0, 0.3, 0));
+    if (light) group.add(light);
+  }
+  
+  group.position.set(x, 0, z);
+  const s = 0.7 + Math.random() * 0.6;
+  group.scale.setScalar(s);
+  scene.add(group);
+  mushrooms.push({ group, light, baseIntensity: 0.4 });
+}
+
+// ============ ДЕРЕВЬЯ ============
+const treePositions = [];
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 1 });
+const leavesMat1 = new THREE.MeshStandardMaterial({ color: 0x1a2a15, roughness: 1 });
+const leavesMat2 = new THREE.MeshStandardMaterial({ color: 0x0f1f0a, roughness: 1 });
+
+for (let i = 0; i < Q.treeCount; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 12 + Math.random() * (WORLD_RADIUS - 20);
+  const x = Math.cos(angle) * dist;
+  const z = Math.sin(angle) * dist;
+  
+  if (Math.sqrt(x*x + z*z) < 11) continue;
+  let tooClose = false;
+  for (const p of treePositions) {
+    if ((p.x-x)**2 + (p.z-z)**2 < 10) { tooClose = true; break; }
+  }
+  if (tooClose) continue;
+  
+  const treeGroup = new THREE.Group();
+  const height = 6 + Math.random() * 4;
+  const seg = Q.treeSegments;
+  
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, height, seg), trunkMat);
+  trunk.position.y = height/2;
+  trunk.castShadow = Q.shadows;
+  treeGroup.add(trunk);
+  
+  const leafSizes = [
+    { r: 1.8, h: 2.5, y: height - 0.5 },
+    { r: 1.4, h: 2.0, y: height + 1.2 },
+    { r: 0.9, h: 1.5, y: height + 2.5 }
+  ];
+  
+  leafSizes.forEach((l, idx) => {
+    const leaves = new THREE.Mesh(
+      new THREE.ConeGeometry(l.r, l.h, seg),
+      idx % 2 === 0 ? leavesMat1 : leavesMat2
+    );
+    leaves.position.y = l.y;
+    leaves.castShadow = Q.shadows;
+    treeGroup.add(leaves);
+  });
+  
+  treeGroup.position.set(x, 0, z);
+  scene.add(treeGroup);
+  
+  treePositions.push({ x, z, r: 0.5 });
+}
+
+// ============ ДОМА С NPC ============
+const houses = [];
+const housePositions = [
+  { x: 60, z: 60, rot: -Math.PI/4 },
+  { x: -70, z: 40, rot: Math.PI/3 },
+  { x: 50, z: -80, rot: Math.PI/6 },
+  { x: -60, z: -70, rot: -Math.PI/3 }
+];
+
+function createNPC() {
+  const group = new THREE.Group();
+  const robeMat = new THREE.MeshStandardMaterial({ color: 0x4a3a6a, roughness: 0.9 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: 0xc4a080, roughness: 0.8 });
+  const seg = Q.geoDetail;
+  
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 1.5, seg), robeMat);
+  body.position.y = 0.75;
+  group.add(body);
+  
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.25, seg, seg-2), skinMat);
+  head.position.y = 1.75;
+  group.add(head);
+  
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.33, seg, Math.max(4, seg-2), 0, Math.PI*2, 0, Math.PI/2), robeMat);
+  hood.position.y = 1.85;
+  group.add(hood);
+  
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x88ffff });
+  [[-0.08, 1.75, 0.22], [0.08, 1.75, 0.22]].forEach(p => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 4, 4), eyeMat);
+    eye.position.set(p[0], p[1], p[2]);
+    group.add(eye);
+  });
+  
+  if (Q.dynamicLights) {
+    const eyeLight = addPointLight(0x88ffff, 0.3, 3, new THREE.Vector3(0, 1.75, 0.25));
+    if (eyeLight) group.add(eyeLight);
+  }
+  
+  return group;
+}
+
+function createHouse(x, z, rotation) {
+  const group = new THREE.Group();
+  
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x6a5030, roughness: 0.9 });
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a1a0a, roughness: 0.9 });
+  const doorMat = new THREE.MeshBasicMaterial({ color: 0x1a0a00 });
+  const windowMat = new THREE.MeshBasicMaterial({ color: 0xffaa44 });
+  
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 6), wallMat);
+  walls.position.y = 1.5;
+  walls.castShadow = Q.shadows;
+  walls.receiveShadow = Q.shadows;
+  group.add(walls);
+  
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 2.2, 4), roofMat);
+  roof.position.y = 4.1;
+  roof.rotation.y = Math.PI/4;
+  roof.castShadow = Q.shadows;
+  group.add(roof);
+  
+  const door = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 2.3), doorMat);
+  door.position.set(0, 1.15, 3.02);
+  group.add(door);
+  
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x2a1a0a });
+  const frameTop = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 0.1), frameMat);
+  frameTop.position.set(0, 2.35, 3.05);
+  group.add(frameTop);
+  
+  [[-2, 2, 3.02], [2, 2, 3.02], [-3.02, 2, 0], [3.02, 2, 0]].forEach((p, idx) => {
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), windowMat);
+    w.position.set(p[0], p[1], p[2]);
+    if (idx >= 2) w.rotation.y = Math.PI/2;
+    group.add(w);
+  });
+  
+  const houseLight = new THREE.PointLight(0xffaa44, 1.2, 12);
+  houseLight.position.set(0, 2, 0);
+  group.add(houseLight);
+  
+  let porchLight = null;
+  if (Q.dynamicLights) {
+    porchLight = addPointLight(0xffaa44, 0.6, 6, new THREE.Vector3(0, 2.8, 3.3));
+    if (porchLight) group.add(porchLight);
+  }
+  
+  const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffcc66 });
+  const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6, 6), lanternMat);
+  lantern.position.set(0, 2.8, 3.3);
+  group.add(lantern);
+  
+  const npc = createNPC();
+  npc.position.set(0, 0, -1);
+  npc.rotation.y = Math.PI;
+  group.add(npc);
+  
+  group.position.set(x, 0, z);
+  group.rotation.y = rotation;
+  scene.add(group);
+  
+  return { 
+    group, 
+    pos: new THREE.Vector3(x, 0, z), 
+    radius: 4.5,
+    wallRadius: 3.5
+  };
+}
+
+for (const hp of housePositions) {
+  houses.push(createHouse(hp.x, hp.z, hp.rot));
+}
+
+// ============ ПЕЩЕРЫ И РЕЛИКВИИ ============
+const caves = [];
+const caveAngles = [0, (2*Math.PI)/3, (4*Math.PI)/3];
+const caveDist = 130;
+const relicColors = [0xff3333, 0x33ff88, 0x3388ff];
+
+for (let i = 0; i < 3; i++) {
+  const cx = Math.cos(caveAngles[i]) * caveDist;
+  const cz = Math.sin(caveAngles[i]) * caveDist;
+  
+  const caveGroup = new THREE.Group();
+  
+  const caveGeo = new THREE.SphereGeometry(4.5, Q.geoDetail, Math.max(4, Q.geoDetail-2), 0, Math.PI*2, 0, Math.PI/2);
+  const caveMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 1, side: THREE.BackSide });
+  const cave = new THREE.Mesh(caveGeo, caveMat);
+  caveGroup.add(cave);
+  
+  for (let j = 0; j < 6; j++) {
+    const rock = new THREE.Mesh(rockGeo, rockMat);
+    const a = (j / 6) * Math.PI;
+    rock.position.set(Math.cos(a) * 3.5, 0.5, Math.sin(a) * 0.5 - 1);
+    rock.scale.setScalar(0.6 + Math.random() * 0.4);
+    rock.rotation.set(Math.random(), Math.random(), Math.random());
+    caveGroup.add(rock);
+  }
+  
+  caveGroup.position.set(cx, 0, cz);
+  caveGroup.rotation.y = Math.atan2(-cz, -cx);
+  scene.add(caveGroup);
+  
+  const openingGeo = new THREE.CircleGeometry(2.8, 12);
+  const openingMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const opening = new THREE.Mesh(openingGeo, openingMat);
+  opening.position.set(cx, 1.6, cz);
+  opening.lookAt(0, 1.6, 0);
+  scene.add(opening);
+  
+  const relicGeo = new THREE.OctahedronGeometry(0.45, 0);
+  const relicMat = new THREE.MeshStandardMaterial({ 
+    color: relicColors[i], emissive: relicColors[i], emissiveIntensity: 2.0, 
+    metalness: 0.9, roughness: 0.1 
+  });
+  const relic = new THREE.Mesh(relicGeo, relicMat);
+  relic.position.set(cx, 1.3, cz);
+  scene.add(relic);
+  
+  const glowGeo = new THREE.SphereGeometry(0.8, 8, 8);
+  const glowMat = new THREE.MeshBasicMaterial({ 
+    color: relicColors[i], transparent: true, opacity: 0.15 
+  });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  glow.position.copy(relic.position);
+  scene.add(glow);
+  
+  const relicLight = addPointLight(relicColors[i], 1.5, 12, new THREE.Vector3(cx, 1.3, cz));
+  
+  caves.push({ 
+    pos: new THREE.Vector3(cx, 0, cz), 
+    relic, relicLight, glow,
+    collected: false, color: relicColors[i] 
+  });
+}
+
+// ============ МОНСТРЫ ============
+function createAlien() {
+  const group = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a1a3a, roughness: 0.6 });
+  const boneMat = new THREE.MeshStandardMaterial({ color: 0x888877, roughness: 0.3 });
+  const seg = Q.geoDetail;
+  
+  [[-0.7,0,-0.5],[-0.7,0,0.5],[0.7,0,-0.5],[0.7,0,0.5]].forEach(p => {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 4, Math.max(4, seg-2)), boneMat);
+    leg.position.set(p[0], 2, p[2]);
+    group.add(leg);
+    const joint = new THREE.Mesh(new THREE.SphereGeometry(0.15, 4, 4), boneMat);
+    joint.position.set(p[0], 2.5, p[2]);
+    group.add(joint);
+  });
+  
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.55, 2.0, 4, seg), bodyMat);
+  body.rotation.z = Math.PI/2;
+  body.position.y = 4.5;
+  group.add(body);
+  
+  for (let i = 0; i < 4; i++) {
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.4, 4), boneMat);
+    spike.position.set(-0.5 + i * 0.4, 5.1, 0);
+    group.add(spike);
+  }
+  
+  const head = new THREE.Mesh(new THREE.CapsuleGeometry(0.35, 1.2, 4, seg), bodyMat);
+  head.rotation.z = Math.PI/2;
+  head.position.set(1.6, 4.6, 0);
+  group.add(head);
+  
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), eyeMat);
+  eye.position.set(2.1, 4.7, 0);
+  group.add(eye);
+  
+  const eyeLight = addPointLight(0xff00ff, 1.2, 8, new THREE.Vector3(2.1, 4.7, 0));
+  if (eyeLight) group.add(eyeLight);
+  
+  return group;
+}
+
+function createZombieBear() {
+  const group = new THREE.Group();
+  const furMat = new THREE.MeshStandardMaterial({ color: 0x2a3a1a, roughness: 1 });
+  const decayMat = new THREE.MeshStandardMaterial({ color: 0x5a4a2a, roughness: 1 });
+  const seg = Q.geoDetail;
+  
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1.2, seg, seg-2), furMat);
+  body.scale.set(1, 0.9, 1.3);
+  body.position.y = 1.3;
+  group.add(body);
+  
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.7, seg, seg-2), decayMat);
+  head.position.set(0, 1.8, 1.1);
+  group.add(head);
+  
+  const snout = new THREE.Mesh(new THREE.SphereGeometry(0.3, 6, 5), decayMat);
+  snout.position.set(0, 1.7, 1.6);
+  group.add(snout);
+  
+  const toothMat = new THREE.MeshStandardMaterial({ color: 0xeeeecc });
+  [[-0.1, 1.55, 1.8],[0.1, 1.55, 1.8]].forEach(p => {
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.2, 4), toothMat);
+    tooth.position.set(p[0], p[1], p[2]);
+    tooth.rotation.x = Math.PI;
+    group.add(tooth);
+  });
+  
+  [[-0.7,0,-0.6],[0.7,0,-0.6],[-0.7,0,0.6],[0.7,0,0.6]].forEach(p => {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 1, Math.max(4, seg-2)), furMat);
+    leg.position.set(p[0], 0.5, p[2]);
+    group.add(leg);
+  });
+  
+  [[-0.4,2.3,1.1],[0.4,2.3,1.1]].forEach(p => {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.15, 5, 5), furMat);
+    ear.position.set(p[0], p[1], p[2]);
+    group.add(ear);
+  });
+  
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xaaff00 });
+  [[-0.25,1.9,1.6],[0.25,1.9,1.6]].forEach(p => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 5, 5), eyeMat);
+    eye.position.set(p[0], p[1], p[2]);
+    group.add(eye);
+  });
+  
+  const eyeLight = addPointLight(0xaaff00, 0.8, 6, new THREE.Vector3(0, 1.9, 1.7));
+  if (eyeLight) group.add(eyeLight);
+  
+  return group;
+}
+
+function createDeer() {
+  const group = new THREE.Group();
+  const furMat = new THREE.MeshStandardMaterial({ color: 0x4a2a1a, roughness: 0.8 });
+  const seg = Q.geoDetail;
+  
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 1.2, 4, seg), furMat);
+  body.rotation.z = Math.PI/2;
+  body.position.y = 1.4;
+  group.add(body);
+  
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.8, Math.max(4, seg-2)), furMat);
+  neck.position.set(0.8, 1.8, 0);
+  neck.rotation.z = -Math.PI/4;
+  group.add(neck);
+  
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.5), furMat);
+  head.position.set(1.2, 2.2, 0);
+  group.add(head);
+  
+  const antlerMat = new THREE.MeshStandardMaterial({ color: 0x2a1a0a });
+  [[0.05,-0.05],[0.05,0.05]].forEach(p => {
+    const antler = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.8, 4), antlerMat);
+    antler.position.set(1.25 + p[0], 2.6, p[1]);
+    antler.rotation.z = p[1] > 0 ? 0.3 : -0.3;
+    group.add(antler);
+    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.3, 4), antlerMat);
+    branch.position.set(1.3 + p[0], 2.8, p[1] * 2);
+    branch.rotation.z = p[1] > 0 ? 1 : -1;
+    group.add(branch);
+  });
+  
+  [[-0.5,0,-0.2],[-0.5,0,0.2],[0.5,0,-0.2],[0.5,0,0.2]].forEach(p => {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.4, Math.max(4, seg-2)), furMat);
+    leg.position.set(p[0], 0.7, p[2]);
+    group.add(leg);
+  });
+  
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  [[-0.1,0.05,0.25],[0.1,0.05,0.25]].forEach(p => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 5, 5), eyeMat);
+    eye.position.set(1.2 + p[0], 2.2 + p[1], p[2]);
+    group.add(eye);
+  });
+  
+  const eyeLight = addPointLight(0xff0000, 1.0, 7, new THREE.Vector3(1.3, 2.25, 0));
+  if (eyeLight) group.add(eyeLight);
+  
+  return group;
+}
+
+const monsters = [];
+
+const alien = createAlien();
+alien.position.set(80, 0, 40);
+scene.add(alien);
+monsters.push({ mesh: alien, speed: 2.5, range: 30, damage: 20, type: 'alien', cooldown: 0 });
+
+const bear = createZombieBear();
+bear.position.set(-60, 0, 80);
+scene.add(bear);
+monsters.push({ mesh: bear, speed: 3.5, range: 22, damage: 30, type: 'bear', cooldown: 0 });
+
+const deer = createDeer();
+deer.position.set(40, 0, -90);
+scene.add(deer);
+monsters.push({ 
+  mesh: deer, speed: 5.25, range: 45, damage: 15, type: 'deer', 
+  cooldown: 0, chasing: false, chaseDuration: 0, restTimer: 0, patrolTarget: null
+});
+
+// ============ ИГРОК ============
+const player = {
+  pos: new THREE.Vector3(0, 1.7, 5),
+  yaw: 0,
+  pitch: 0,
+  hp: 100,
+  relics: 0
+};
+
+// ============ УПРАВЛЕНИЕ ============
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.code] = true; });
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+let pointerLocked = false;
+renderer.domElement.addEventListener('click', () => {
+  if (!IS_MOBILE && gameStarted && !pointerLocked) renderer.domElement.requestPointerLock();
+});
+document.addEventListener('pointerlockchange', () => { pointerLocked = document.pointerLockElement === renderer.domElement; });
+document.addEventListener('mousemove', e => {
+  if (pointerLocked) {
+    player.yaw -= e.movementX * 0.002;
+    player.pitch -= e.movementY * 0.002;
+    player.pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, player.pitch));
+  }
+});
+
+const joyState = {
+  L: { active: false, touchId: null, startX: 0, startY: 0, vec: {x:0, y:0} },
+  R: { active: false, touchId: null, startX: 0, startY: 0, vec: {x:0, y:0} }
+};
+
+const stickR = document.getElementById('stickR');
+
+function handleJoyMove(state, e) {
+  const t = Array.from(e.touches).find(tt => tt.identifier === state.touchId);
+  if (!t) return;
+  let dx = t.clientX - state.startX;
+  let dy = t.clientY - state.startY;
+  const max = 50;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist > max) { dx = dx/dist*max; dy = dy/dist*max; }
+  state.vec.x = dx/max;
+  state.vec.y = dy/max;
+  
+  if (state === joyState.R) {
+    stickR.style.display = 'block';
+    stickR.style.left = (state.startX + dx - 27.5) + 'px';
+    stickR.style.top = (state.startY + dy - 27.5) + 'px';
+  } else {
+    document.getElementById('stickL').style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  }
+}
+
+function handleJoyEnd(state, e) {
+  const ended = Array.from(e.changedTouches).some(t => t.identifier === state.touchId);
+  if (ended) {
+    state.active = false; state.touchId = null;
+    state.vec.x = 0; state.vec.y = 0;
+    if (state === joyState.R) {
+      stickR.style.display = 'none';
+    } else {
+      document.getElementById('stickL').style.transform = 'translate(-50%, -50%)';
+    }
+  }
+}
+
+const joyL = document.getElementById('joystickL');
+joyL.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const state = joyState.L;
+  if (state.active) return;
+  const t = e.changedTouches[0];
+  state.active = true; state.touchId = t.identifier;
+  const rect = joyL.getBoundingClientRect();
+  state.startX = rect.left + rect.width/2;
+  state.startY = rect.top + rect.height/2;
+  handleJoyMove(state, e);
+}, { passive: false });
+joyL.addEventListener('touchmove', e => { e.preventDefault(); handleJoyMove(joyState.L, e); }, { passive: false });
+joyL.addEventListener('touchend', e => { e.preventDefault(); handleJoyEnd(joyState.L, e); }, { passive: false });
+joyL.addEventListener('touchcancel', e => { handleJoyEnd(joyState.L, e); }, { passive: false });
+
+const joyR = document.getElementById('joystickR');
+joyR.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const state = joyState.R;
+  if (state.active) return;
+  const t = e.changedTouches[0];
+  state.active = true; state.touchId = t.identifier;
+  state.startX = t.clientX;
+  state.startY = t.clientY;
+  handleJoyMove(state, e);
+}, { passive: false });
+joyR.addEventListener('touchmove', e => { e.preventDefault(); handleJoyMove(joyState.R, e); }, { passive: false });
+joyR.addEventListener('touchend', e => { e.preventDefault(); handleJoyEnd(joyState.R, e); }, { passive: false });
+joyR.addEventListener('touchcancel', e => { handleJoyEnd(joyState.R, e); }, { passive: false });
+
+document.getElementById('actionBtn').addEventListener('touchstart', e => { 
+  e.preventDefault(); tryInteract(); 
+}, { passive: false });
+
+// ============ ЛОГИКА ============
+let gameStarted = false;
+let gameOver = false;
+
+function isInSafeZone() {
+  for (const house of houses) {
+    const dx = player.pos.x - house.pos.x;
+    const dz = player.pos.z - house.pos.z;
+    if (dx*dx + dz*dz < house.radius * house.radius) return true;
+  }
+  return false;
+}
+
+function isPointInHouse(x, z) {
+  for (const house of houses) {
+    const dx = x - house.pos.x;
+    const dz = z - house.pos.z;
+    if (dx*dx + dz*dz < house.wallRadius * house.wallRadius) return house;
+  }
+  return null;
+}
+
+function tryInteract() {
+  for (const cave of caves) {
+    if (cave.collected) continue;
+    const dist = player.pos.distanceTo(new THREE.Vector3(cave.pos.x, 1.7, cave.pos.z));
+    if (dist < 3) {
+      cave.collected = true;
+      scene.remove(cave.relic); 
+      scene.remove(cave.relicLight);
+      scene.remove(cave.glow);
+      player.relics++;
+      document.getElementById('relics').textContent = player.relics;
+      showMessage(`Реликвия найдена! (${player.relics}/3)`, 2000);
+      if (player.relics === 3) {
+        document.getElementById('status').textContent = 'Неси реликвии к постаменту!';
+        document.getElementById('status').style.color = '#fa0';
+      }
+      return;
+    }
+  }
+  const pedestalDist = player.pos.distanceTo(new THREE.Vector3(0, 1.7, 0));
+  if (pedestalDist < 3.5 && player.relics === 3) winGame();
+  else if (pedestalDist < 3.5 && player.relics < 3) showMessage(`Нужно собрать все 3 реликвии (${player.relics}/3)`, 2000);
+}
+
+function showMessage(text, duration = 3000) {
+  const msg = document.getElementById('message');
+  msg.textContent = text; msg.style.display = 'block';
+  if (duration > 0) setTimeout(() => msg.style.display = 'none', duration);
+}
+
+function showHint(text) {
+  document.getElementById('hint').textContent = text;
+  document.getElementById('hint').style.display = 'block';
+}
+function hideHint() { document.getElementById('hint').style.display = 'none'; }
+
+function damagePlayer(amount) {
+  if (isInSafeZone()) return;
+  player.hp -= amount;
+  document.getElementById('hp').textContent = Math.max(0, Math.floor(player.hp));
+  const flash = document.getElementById('damageFlash');
+  flash.style.opacity = '1';
+  setTimeout(() => flash.style.opacity = '0', 300);
+  if (player.hp <= 0) loseGame();
+}
+
+function winGame() {
+  gameOver = true;
+  document.getElementById('endTitle').textContent = 'ПРОКЛЯТИЕ СНЯТО';
+  document.getElementById('endTitle').style.color = '#0f0';
+  document.getElementById('endText').textContent = 'Ты собрал все реликвии и положил их на постамент. Остров освобождён.';
+  document.getElementById('endScreen').style.display = 'flex';
+}
+
+function loseGame() {
+  gameOver = true;
+  document.getElementById('endTitle').textContent = 'ТЫ МЁРТВ';
+  document.getElementById('endTitle').style.color = '#f00';
+  document.getElementById('endText').textContent = 'Монстры настигли тебя.';
+  document.getElementById('endScreen').style.display = 'flex';
+}
+
+// ============ ГЛАВНЫЙ ЦИКЛ ============
+const clock = new THREE.Clock();
+let frameCount = 0;
+let fpsTime = 0;
+const fpsEl = document.getElementById('fpsCounter');
+
+if (currentQuality === 'low') fpsEl.style.display = 'block';
+
+function update() {
+  if (!gameStarted || gameOver) return;
+  const dt = Math.min(clock.getDelta(), 0.1);
+  const time = clock.elapsedTime;
+  
+  // FPS счётчик
+  frameCount++;
+  fpsTime += dt;
+  if (fpsTime >= 1) {
+    if (currentQuality === 'low') {
+      fpsEl.textContent = `FPS: ${frameCount}`;
+    }
+    frameCount = 0;
+    fpsTime = 0;
+  }
+  
+  // === Движение игрока ===
+  let mx = 0, mz = 0;
+  if (keys['KeyW'] || keys['ArrowUp']) mz -= 1;
+  if (keys['KeyS'] || keys['ArrowDown']) mz += 1;
+  if (keys['KeyA'] || keys['ArrowLeft']) mx -= 1;
+  if (keys['KeyD'] || keys['ArrowRight']) mx += 1;
+  if (IS_MOBILE) { mx = joyState.L.vec.x; mz = joyState.L.vec.y; }
+  
+  const len = Math.sqrt(mx*mx + mz*mz);
+  if (len > 0) { mx /= len; mz /= len; }
+  
+  const speed = (keys['ShiftLeft'] ? PLAYER_RUN : PLAYER_SPEED);
+  const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+  const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+  
+  const move = new THREE.Vector3();
+  move.addScaledVector(forward, -mz);
+  move.addScaledVector(right, mx);
+  move.multiplyScalar(speed * dt);
+  
+  const newPos = player.pos.clone().add(move);
+  let blocked = false;
+  
+  for (const t of treePositions) {
+    const dx = newPos.x - t.x, dz = newPos.z - t.z;
+    if (dx*dx + dz*dz < (t.r + 0.4)**2) { blocked = true; break; }
+  }
+  
+  if (!blocked) {
+    for (const house of houses) {
+      const dx = newPos.x - house.pos.x;
+      const dz = newPos.z - house.pos.z;
+      const dist2 = dx*dx + dz*dz;
+      
+      const playerDx = player.pos.x - house.pos.x;
+      const playerDz = player.pos.z - house.pos.z;
+      const playerDist2 = playerDx*playerDx + playerDz*playerDz;
+      
+      if (playerDist2 < house.wallRadius * house.wallRadius) {
+        if (dist2 > (house.wallRadius + 0.3)**2) {
+          const localX = dx * Math.cos(-house.group.rotation.y) - dz * Math.sin(-house.group.rotation.y);
+          const localZ = dx * Math.sin(-house.group.rotation.y) + dz * Math.cos(-house.group.rotation.y);
+          if (!(localZ > 2 && Math.abs(localX) < 0.8)) {
+            blocked = true;
+            break;
+          }
+        }
+      } else {
+        if (dist2 < (house.wallRadius + 0.3)**2) {
+          const localX = dx * Math.cos(-house.group.rotation.y) - dz * Math.sin(-house.group.rotation.y);
+          const localZ = dx * Math.sin(-house.group.rotation.y) + dz * Math.cos(-house.group.rotation.y);
+          if (!(localZ > 2 && Math.abs(localX) < 0.8)) {
+            blocked = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  if (newPos.x*newPos.x + newPos.z*newPos.z > (WORLD_RADIUS - 5)**2) blocked = true;
+  
+  if (!blocked) { player.pos.x = newPos.x; player.pos.z = newPos.z; }
+  
+  const distToCenter = Math.sqrt(player.pos.x*player.pos.x + player.pos.z*player.pos.z);
+  let targetY = 1.7;
+  if (distToCenter < 9) targetY = 1.7 + (9 - distToCenter) * 0.42;
+  player.pos.y = targetY;
+  
+  if (IS_MOBILE) {
+    player.yaw   -= joyState.R.vec.x * LOOK_SENSITIVITY * dt;
+    player.pitch -= joyState.R.vec.y * LOOK_SENSITIVITY * dt;
+    player.pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, player.pitch));
+  }
+  
+  camera.position.copy(player.pos);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = player.yaw;
+  camera.rotation.x = player.pitch;
+  torch.position.copy(player.pos);
+  
+  if (keys['KeyE']) { keys['KeyE'] = false; tryInteract(); }
+  
+  const inSafe = isInSafeZone();
+  document.getElementById('safeIndicator').style.display = inSafe ? 'block' : 'none';
+  
+  let hintShown = false;
+  if (inSafe) {
+    showHint('🛡️ Вы в безопасности. Монстры не могут вас атаковать.');
+    hintShown = true;
+  }
+  if (!hintShown) {
+    for (const cave of caves) {
+      if (cave.collected) continue;
+      if (player.pos.distanceTo(new THREE.Vector3(cave.pos.x, 1.7, cave.pos.z)) < 3) { 
+        showHint('Нажми [E] или кнопку, чтобы взять реликвию'); hintShown = true; break; 
+      }
+    }
+  }
+  if (!hintShown) {
+    const pd = player.pos.distanceTo(new THREE.Vector3(0, 1.7, 0));
+    if (pd < 3.5 && player.relics === 3) { showHint('Нажми [E] или кнопку, чтобы положить реликвии'); hintShown = true; }
+    else if (pd < 3.5) { showHint(`Нужно собрать все 3 реликвии (${player.relics}/3)`); hintShown = true; }
+  }
+  if (!hintShown) hideHint();
+  
+  // === Анимация мира ===
+  for (const cave of caves) {
+    if (!cave.collected && cave.relic) {
+      cave.relic.rotation.y = time * 2;
+      cave.relic.position.y = 1.3 + Math.sin(time * 2) * 0.2;
+      cave.glow.position.y = cave.relic.position.y;
+      cave.glow.scale.setScalar(1 + Math.sin(time * 3) * 0.15);
+    }
+  }
+  halo.rotation.z = time * 0.5;
+  if (pedestalLight) pedestalLight.intensity = 0.8 + Math.sin(time * 2) * 0.2;
+  
+  if (Q.dynamicLights) {
+    for (const m of mushrooms) {
+      if (m.light) m.light.intensity = m.baseIntensity + Math.sin(time * 3 + m.group.position.x) * 0.15;
+    }
+  }
+  
+  if (Q.torchFlicker) {
+    torch.intensity = 1.4 + Math.sin(time * 10) * 0.1 + Math.random() * 0.15;
+  }
+  
+  // === ИИ МОНСТРОВ ===
+  for (const m of monsters) {
+    const dx = player.pos.x - m.mesh.position.x;
+    const dz = player.pos.z - m.mesh.position.z;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    
+    m.cooldown = Math.max(0, m.cooldown - dt);
+    let speed = m.speed;
+    let chasing = false;
+    
+    const playerInSafe = isInSafeZone();
+    
+    if (m.type === 'deer') {
+      if (m.restTimer > 0) {
+        m.restTimer -= dt;
+        if (!m.patrolTarget || m.mesh.position.distanceTo(m.patrolTarget) < 2) {
+          const a = Math.random() * Math.PI * 2;
+          const r = 60 + Math.random() * 100;
+          m.patrolTarget = new THREE.Vector3(Math.cos(a)*r, 0, Math.sin(a)*r);
+        }
+        const pdx = m.patrolTarget.x - m.mesh.position.x;
+        const pdz = m.patrolTarget.z - m.mesh.position.z;
+        const pd = Math.sqrt(pdx*pdx + pdz*pdz);
+        if (pd > 0.5) {
+          m.mesh.position.x += pdx/pd * (m.speed * 0.5) * dt;
+          m.mesh.position.z += pdz/pd * (m.speed * 0.5) * dt;
+          m.mesh.rotation.y = Math.atan2(pdx, pdz);
+        }
+      } else {
+        if (dist < m.range && !playerInSafe) {
+          m.chasing = true;
+          m.chaseDuration += dt;
+          
+          if (m.chaseDuration > 5.0) {
+            m.chasing = false;
+            m.chaseDuration = 0;
+            m.restTimer = 10;
+            const a = Math.random() * Math.PI * 2;
+            const r = 80 + Math.random() * 80;
+            m.patrolTarget = new THREE.Vector3(Math.cos(a)*r, 0, Math.sin(a)*r);
+          } else {
+            chasing = true;
+            speed = m.speed;
+          }
+        } else {
+          m.chaseDuration = Math.max(0, m.chaseDuration - dt * 0.5);
+          if (!m.patrolTarget || m.mesh.position.distanceTo(m.patrolTarget) < 2) {
+            const a = Math.random() * Math.PI * 2;
+            const r = 40 + Math.random() * 120;
+            m.patrolTarget = new THREE.Vector3(Math.cos(a)*r, 0, Math.sin(a)*r);
+          }
+          const pdx = m.patrolTarget.x - m.mesh.position.x;
+          const pdz = m.patrolTarget.z - m.mesh.position.z;
+          const pd = Math.sqrt(pdx*pdx + pdz*pdz);
+          if (pd > 0.5) {
+            m.mesh.position.x += pdx/pd * (m.speed * 0.4) * dt;
+            m.mesh.position.z += pdz/pd * (m.speed * 0.4) * dt;
+            m.mesh.rotation.y = Math.atan2(pdx, pdz);
+          }
+        }
+      }
+    } else {
+      if (dist < m.range && !playerInSafe) {
+        chasing = true;
+      } else {
+        if (!m.patrolTarget || m.mesh.position.distanceTo(m.patrolTarget) < 2) {
+          const a = Math.random() * Math.PI * 2;
+          const r = 30 + Math.random() * 130;
+          m.patrolTarget = new THREE.Vector3(Math.cos(a)*r, 0, Math.sin(a)*r);
+        }
+        const pdx = m.patrolTarget.x - m.mesh.position.x;
+        const pdz = m.patrolTarget.z - m.mesh.position.z;
+        const pd = Math.sqrt(pdx*pdx + pdz*pdz);
+        if (pd > 0.5) {
+          m.mesh.position.x += pdx/pd * m.speed * 0.4 * dt;
+          m.mesh.position.z += pdz/pd * m.speed * 0.4 * dt;
+          m.mesh.rotation.y = Math.atan2(pdx, pdz);
+        }
+      }
+    }
+    
+    const monsterInHouse = isPointInHouse(m.mesh.position.x, m.mesh.position.z);
+    
+    if (chasing && !monsterInHouse) {
+      const nd = Math.sqrt(dx*dx + dz*dz);
+      if (nd > 0.1) {
+        const nextX = m.mesh.position.x + dx/nd * speed * dt;
+        const nextZ = m.mesh.position.z + dz/nd * speed * dt;
+        
+        const nextInHouse = isPointInHouse(nextX, nextZ);
+        if (!nextInHouse) {
+          m.mesh.position.x = nextX;
+          m.mesh.position.z = nextZ;
+          m.mesh.rotation.y = Math.atan2(dx, dz);
+        } else {
+          const sideAngle = Math.atan2(dz, dx) + (Math.random() > 0.5 ? Math.PI/2 : -Math.PI/2);
+          m.mesh.position.x += Math.cos(sideAngle) * speed * dt;
+          m.mesh.position.z += Math.sin(sideAngle) * speed * dt;
+          m.mesh.rotation.y = sideAngle - Math.PI/2;
+        }
+      }
+      if (dist < 2 && m.cooldown <= 0) {
+        damagePlayer(m.damage);
+        m.cooldown = 1.5;
+      }
+    } else if (!chasing && !monsterInHouse) {
+      if (!m.patrolTarget || m.mesh.position.distanceTo(m.patrolTarget) < 2) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 30 + Math.random() * 130;
+        m.patrolTarget = new THREE.Vector3(Math.cos(a)*r, 0, Math.sin(a)*r);
+      }
+      const pdx = m.patrolTarget.x - m.mesh.position.x;
+      const pdz = m.patrolTarget.z - m.mesh.position.z;
+      const pd = Math.sqrt(pdx*pdx + pdz*pdz);
+      if (pd > 0.5) {
+        const nextX = m.mesh.position.x + pdx/pd * m.speed * 0.4 * dt;
+        const nextZ = m.mesh.position.z + pdz/pd * m.speed * 0.4 * dt;
+        if (!isPointInHouse(nextX, nextZ)) {
+          m.mesh.position.x = nextX;
+          m.mesh.position.z = nextZ;
+          m.mesh.rotation.y = Math.atan2(pdx, pdz);
+        }
+      }
+    }
+    
+    m.mesh.position.y = 0;
+    if (chasing) {
+      m.mesh.position.y = Math.abs(Math.sin(time * (m.type === 'deer' ? 15 : 6))) * 0.15;
+    }
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  update();
+  renderer.render(scene, camera);
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('startScreen').style.display = 'none';
+  gameStarted = true;
+  clock.start();
+  if (!IS_MOBILE) renderer.domElement.requestPointerLock();
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>
